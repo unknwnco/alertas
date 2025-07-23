@@ -92,7 +92,7 @@ async function subscribe(type, condition) {
     condition,
     transport: {
       method: 'webhook',
-      callback: 'https://alertas-3hqs.onrender.com',
+      callback: 'https://alertas-3hqs.onrender.com/webhook',
       secret
     }
   }, {
