@@ -9,32 +9,35 @@ const secret = process.env.EVENTSUB_SECRET;
 const twitchClientId = process.env.TWITCH_CLIENT_ID;
 const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
 const twitchUsername = process.env.TWITCH_USERNAME;
+
 let accessToken = null;
 let twitchUserId = null;
 
 const wss = new WebSocket.Server({ noServer: true });
 const sockets = new Set();
 
-app.use(express.json({ verify: verifyTwitchSignature }));
-
-function verifyTwitchSignature(req, res, buf) {
-  const messageId = req.header('Twitch-Eventsub-Message-Id');
-  const timestamp = req.header('Twitch-Eventsub-Message-Timestamp');
-  const messageSignature = req.header('Twitch-Eventsub-Message-Signature');
-  const hmacMessage = messageId + timestamp + buf;
-  const computedSignature = 'sha256=' +
-    crypto.createHmac('sha256', secret).update(hmacMessage).digest('hex');
-  if (computedSignature !== messageSignature) {
-    throw new Error('Invalid Twitch signature');
+app.use(express.json({
+  verify: (req, res, buf) => {
+    const messageId = req.header('Twitch-Eventsub-Message-Id');
+    const timestamp = req.header('Twitch-Eventsub-Message-Timestamp');
+    const messageSignature = req.header('Twitch-Eventsub-Message-Signature');
+    const hmacMessage = messageId + timestamp + buf;
+    const computedSignature = 'sha256=' +
+      crypto.createHmac('sha256', secret).update(hmacMessage).digest('hex');
+    if (computedSignature !== messageSignature) {
+      throw new Error('Invalid Twitch signature');
+    }
   }
-}
+}));
 
 app.post('/webhook', (req, res) => {
   const { subscription, challenge, event } = req.body;
   const msgType = req.header('Twitch-Eventsub-Message-Type');
+
   if (msgType === 'webhook_callback_verification') {
     return res.status(200).send(challenge);
   }
+
   if (msgType === 'notification') {
     const payload = {
       type: subscription.type,
@@ -43,11 +46,16 @@ app.post('/webhook', (req, res) => {
     sockets.forEach(ws => ws.send(JSON.stringify(payload)));
     return res.status(204).end();
   }
+
   res.status(200).end();
 });
 
 app.get('/ws', (req, res) => res.sendStatus(200));
-const server = app.listen(port, () => console.log(`Server running on port ${port}`));
+
+const server = app.listen(port, () => {
+  console.log(`🚀 Server running on port ${port}`);
+});
+
 server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
     sockets.add(ws);
@@ -66,7 +74,6 @@ async function fetchAccessToken() {
   accessToken = res.data.access_token;
 }
 
-
 async function fetchUserId(username) {
   const res = await axios.get('https://api.twitch.tv/helix/users', {
     params: { login: username },
@@ -77,7 +84,6 @@ async function fetchUserId(username) {
   });
   return res.data.data[0]?.id || null;
 }
-
 
 async function subscribe(type, condition) {
   await axios.post('https://api.twitch.tv/helix/eventsub/subscriptions', {
@@ -99,15 +105,22 @@ async function subscribe(type, condition) {
 }
 
 (async () => {
-  await fetchAccessToken();
-  twitchUserId = await fetchUserId(twitchUsername);
-  if (!twitchUserId) {
-    console.error('❌ No se pudo obtener el User ID desde el username.');
+  try {
+    await fetchAccessToken();
+    twitchUserId = await fetchUserId(twitchUsername);
+    if (!twitchUserId) {
+      console.error('❌ No se pudo obtener el User ID desde el username.');
+      process.exit(1);
+    }
+
+    await subscribe('channel.follow', { broadcaster_user_id: twitchUserId });
+    await subscribe('channel.subscribe', { broadcaster_user_id: twitchUserId });
+    await subscribe('channel.cheer', { broadcaster_user_id: twitchUserId });
+    await subscribe('channel.raid', { to_broadcaster_user_id: twitchUserId });
+
+    console.log('✅ Suscripciones EventSub activadas correctamente.');
+  } catch (error) {
+    console.error('❌ Error durante la inicialización:', error.message);
     process.exit(1);
   }
-  await subscribe('channel.follow', { broadcaster_user_id: twitchUserId });
-  await subscribe('channel.subscribe', { broadcaster_user_id: twitchUserId });
-  await subscribe('channel.cheer', { broadcaster_user_id: twitchUserId });
-  await subscribe('channel.raid', { to_broadcaster_user_id: twitchUserId });
-  console.log('✅ Suscripciones activadas');
 })();
