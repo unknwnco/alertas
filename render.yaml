@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: twitch-alerts
+    name: twitch-alerts-backend
     env: node
     plan: free
     buildCommand: npm install
@@ -17,3 +17,12 @@ services:
         sync: false
       - key: TWITCH_USERNAME
         sync: false
+
+  - type: static
+    name: twitch-alerts-frontend
+    plan: free
+    buildCommand: ""
+    staticPublishPath: .
+    branch: main
+    repo: https://github.com/unknwnco/alertas
+    autoDeploy: true
