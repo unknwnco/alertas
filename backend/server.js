@@ -20,7 +20,7 @@ app.use('/admin', express.static(path.join(__dirname, '../frontend/admin')));
 
 // Twitch OAuth
 app.get('/auth/twitch', (req, res) => {
-  const redirect = \`https://id.twitch.tv/oauth2/authorize?client_id=\${process.env.TWITCH_CLIENT_ID}&redirect_uri=\${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email channel:manage:redemptions\`;
+  const redirect = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email`;
   res.redirect(redirect);
 });
 
@@ -40,12 +40,11 @@ app.get('/auth/twitch/callback', async (req, res) => {
     const user = await axios.get('https://api.twitch.tv/helix/users', {
       headers: {
         'Client-ID': process.env.TWITCH_CLIENT_ID,
-        'Authorization': \`Bearer \${data.access_token}\`
+        'Authorization': `Bearer ${data.access_token}`
       }
     });
 
     req.session.user = user.data.data[0];
-    req.session.token = data.access_token;
     res.redirect('/admin');
   } catch (e) {
     res.status(500).send('Auth failed');
@@ -76,40 +75,9 @@ app.post('/simulate', (req, res) => {
   res.sendStatus(200);
 });
 
-app.post('/rewards/create-on-twitch', async (req, res) => {
-  if (!req.session.user || !req.session.user.id || !req.session.token) {
-    return res.status(401).send('Unauthorized');
-  }
-
-  const { title, cost, prompt } = req.body;
-
-  try {
-    await axios.post('https://api.twitch.tv/helix/channel_points/custom_rewards', {
-      title,
-      cost,
-      prompt,
-      is_enabled: true
-    }, {
-      headers: {
-        'Client-ID': process.env.TWITCH_CLIENT_ID,
-        'Authorization': \`Bearer \${req.session.token}\`,
-        'Content-Type': 'application/json'
-      },
-      params: {
-        broadcaster_id: req.session.user.id
-      }
-    });
-
-    res.sendStatus(200);
-  } catch (err) {
-    console.error(err.response?.data || err);
-    res.status(500).send(err.response?.data?.message || 'Failed to create reward');
-  }
-});
-
 io.on('connection', socket => {
   console.log('Overlay connected');
 });
 
 const port = process.env.PORT || 3000;
-server.listen(port, () => console.log(\`Listening on \${port}\`));
+server.listen(port, () => console.log(`Listening on ${port}`));

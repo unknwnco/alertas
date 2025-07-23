@@ -1,3 +1,7 @@
 # Twitch Alerts Custom (Render-compatible)
 
-Use with `npm install && npm start`
+Run with:
+```bash
+npm install && node backend/server.js
+```
+Ensure environment variables are set properly.
