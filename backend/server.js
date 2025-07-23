@@ -56,6 +56,18 @@ app.get('/me', (req, res) => {
   res.json(req.session.user);
 });
 
+app.get('/rewards', (req, res) => {
+  if (!req.session.user) return res.status(401).send('Unauthorized');
+  res.json(rewards);
+});
+
+app.post('/rewards', (req, res) => {
+  if (!req.session.user) return res.status(401).send('Unauthorized');
+  rewards[req.body.title] = req.body.file;
+  fs.writeFileSync(path.join(__dirname, 'rewards.json'), JSON.stringify(rewards, null, 2));
+  res.sendStatus(200);
+});
+
 app.post('/rewards/create-on-twitch', async (req, res) => {
   if (!req.session.user  !req.session.user.id  !req.session.token) {
     return res.status(401).send('Unauthorized');
