@@ -4,12 +4,25 @@
   <title>Admin Panel</title>
 </head>
 <body>
-  <h1>Reward Config</h1>
+  <h1>Create Reward on Twitch</h1>
+  <form id="createTwitchRewardForm">
+    <input name="title" placeholder="Reward Title" required>
+    <input name="cost" type="number" placeholder="Cost in Points" required>
+    <input name="prompt" placeholder="Reward Prompt/Description" required>
+    <button type="submit">Create on Twitch</button>
+  </form>
+  <hr>
+  <h1>Reward Config for Overlay</h1>
   <form id="rewardForm">
     <input name="title" placeholder="Reward Title" required>
     <input name="file" placeholder="Filename (must be in /media)" required>
     <button type="submit">Save</button>
   </form>
+  <h2>Configured Rewards</h2>
+  <ul id="rewardList"></ul>
+  <h2>Simulate Redemption</h2>
+  <select id="simulateSelect"></select>
+  <button id="simulateBtn">Simulate</button>
   <script src="admin.js"></script>
 </body>
 </html>
