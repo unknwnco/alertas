@@ -72,7 +72,7 @@ app.post('/simulate', (req, res) => {
   res.sendStatus(200);
 });
 
-// ✅ FIXED: Create Twitch Reward
+// Create reward on Twitch
 app.post('/rewards/create-on-twitch', async (req, res) => {
   if (!req.session.user || !req.session.user.id || !req.session.token) {
     return res.status(401).send('Unauthorized');
@@ -111,6 +111,11 @@ app.post('/rewards/create-on-twitch', async (req, res) => {
     console.error("❌ Twitch API error:", err.response?.status, err.response?.data);
     res.status(500).send(err.response?.data?.message || 'Twitch API error');
   }
+});
+
+// ✅ SERVE OVERLAY HTML EXPLICITLY
+app.get('/overlay', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/public/overlay.html'));
 });
 
 io.on('connection', socket => {
