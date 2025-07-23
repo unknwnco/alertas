@@ -8,10 +8,11 @@ const port = process.env.PORT || 3000;
 const secret = process.env.EVENTSUB_SECRET;
 const twitchClientId = process.env.TWITCH_CLIENT_ID;
 const twitchClientSecret = process.env.TWITCH_CLIENT_SECRET;
-const twitchUserId = process.env.TWITCH_USER_ID;
+const twitchUsername = process.env.TWITCH_USERNAME;
 let accessToken = null;
+let twitchUserId = null;
 
-const wss = new WebSocket.Server({ noServer: true });
+const wss = new WebSocket.Server{ noServer: true };
 const sockets = new Set();
 
 app.use(express.json({ verify: verifyTwitchSignature }));
@@ -65,6 +66,19 @@ async function fetchAccessToken() {
   accessToken = res.data.access_token;
 }
 
+
+async function fetchUserId(username) {
+  const res = await axios.get('https://api.twitch.tv/helix/users', {
+    params: { login: username },
+    headers: {
+      'Client-ID': twitchClientId,
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+  return res.data.data[0]?.id || null;
+}
+
+
 async function subscribe(type, condition) {
   await axios.post('https://api.twitch.tv/helix/eventsub/subscriptions', {
     type,
@@ -86,8 +100,14 @@ async function subscribe(type, condition) {
 
 (async () => {
   await fetchAccessToken();
+  twitchUserId = await fetchUserId(twitchUsername);
+  if (!twitchUserId) {
+    console.error('❌ No se pudo obtener el User ID desde el username.');
+    process.exit(1);
+  }
   await subscribe('channel.follow', { broadcaster_user_id: twitchUserId });
   await subscribe('channel.subscribe', { broadcaster_user_id: twitchUserId });
   await subscribe('channel.cheer', { broadcaster_user_id: twitchUserId });
   await subscribe('channel.raid', { to_broadcaster_user_id: twitchUserId });
+  console.log('✅ Suscripciones activadas');
 })();
