@@ -56,16 +56,44 @@ app.get('/me', (req, res) => {
   res.json(req.session.user);
 });
 
-app.get('/rewards', (req, res) => {
-  if (!req.session.user) return res.status(401).send('Unauthorized');
-  res.json(rewards);
-});
+app.post('/rewards/create-on-twitch', async (req, res) => {
+  if (!req.session.user  !req.session.user.id  !req.session.token) {
+    return res.status(401).send('Unauthorized');
+  }
 
-app.post('/rewards', (req, res) => {
-  if (!req.session.user) return res.status(401).send('Unauthorized');
-  rewards[req.body.title] = req.body.file;
-  fs.writeFileSync(path.join(__dirname, 'rewards.json'), JSON.stringify(rewards, null, 2));
-  res.sendStatus(200);
+  const { title, cost, prompt } = req.body;
+
+  if (!title  !prompt  !cost  isNaN(cost)  cost <= 0) {
+    return res.status(400).send('Invalid reward data');
+  }
+
+  try {
+    const twitchResponse = await axios.post(
+      'https://api.twitch.tv/helix/channel_points/custom_rewards',
+      {
+        title: title.trim(),
+        cost: parseInt(cost),
+        prompt: prompt.trim(),
+        is_enabled: true
+      },
+      {
+        headers: {
+          'Client-ID': process.env.TWITCH_CLIENT_ID,
+          'Authorization': Bearer ${req.session.token},
+          'Content-Type': 'application/json'
+        },
+        params: {
+          broadcaster_id: req.session.user.id
+        }
+      }
+    );
+
+    console.log("✅ Reward created:", twitchResponse.data);
+    res.sendStatus(200);
+  } catch (err) {
+    console.error("❌ Twitch API error:", err.response?.status, err.response?.data);
+    res.status(500).send(err.response?.data?.message || 'Twitch API error');
+  }
 });
 
 app.post('/simulate', (req, res) => {
