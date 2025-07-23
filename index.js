@@ -12,7 +12,7 @@ const twitchUsername = process.env.TWITCH_USERNAME;
 let accessToken = null;
 let twitchUserId = null;
 
-const wss = new WebSocket.Server{ noServer: true };
+const wss = new WebSocket.Server({ noServer: true });
 const sockets = new Set();
 
 app.use(express.json({ verify: verifyTwitchSignature }));
