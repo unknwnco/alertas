@@ -18,9 +18,9 @@ app.use(session({ secret: process.env.SESSION_SECRET || 'secret', resave: false,
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 app.use('/admin', express.static(path.join(__dirname, '../frontend/admin')));
 
-// Twitch OAuth
+// Twitch OAuth login
 app.get('/auth/twitch', (req, res) => {
-  const redirect = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email`;
+  const redirect = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email channel:manage:redemptions`;
   res.redirect(redirect);
 });
 
@@ -45,15 +45,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
     });
 
     req.session.user = user.data.data[0];
+    req.session.token = data.access_token;
     res.redirect('/admin');
   } catch (e) {
+    console.error(e);
     res.status(500).send('Auth failed');
   }
-});
-
-app.get('/me', (req, res) => {
-  if (!req.session.user) return res.status(401).json({ error: 'Not logged in' });
-  res.json(req.session.user);
 });
 
 app.get('/rewards', (req, res) => {
@@ -68,14 +65,22 @@ app.post('/rewards', (req, res) => {
   res.sendStatus(200);
 });
 
+app.post('/simulate', (req, res) => {
+  const { title } = req.body;
+  const file = rewards[title];
+  if (file) io.emit('play', file);
+  res.sendStatus(200);
+});
+
+// ✅ FIXED: Create Twitch Reward
 app.post('/rewards/create-on-twitch', async (req, res) => {
-  if (!req.session.user  !req.session.user.id  !req.session.token) {
+  if (!req.session.user || !req.session.user.id || !req.session.token) {
     return res.status(401).send('Unauthorized');
   }
 
   const { title, cost, prompt } = req.body;
 
-  if (!title  !prompt  !cost  isNaN(cost)  cost <= 0) {
+  if (!title || !prompt || !cost || isNaN(cost) || cost <= 0) {
     return res.status(400).send('Invalid reward data');
   }
 
@@ -91,7 +96,7 @@ app.post('/rewards/create-on-twitch', async (req, res) => {
       {
         headers: {
           'Client-ID': process.env.TWITCH_CLIENT_ID,
-          'Authorization': Bearer ${req.session.token},
+          'Authorization': `Bearer ${req.session.token}`,
           'Content-Type': 'application/json'
         },
         params: {
@@ -106,13 +111,6 @@ app.post('/rewards/create-on-twitch', async (req, res) => {
     console.error("❌ Twitch API error:", err.response?.status, err.response?.data);
     res.status(500).send(err.response?.data?.message || 'Twitch API error');
   }
-});
-
-app.post('/simulate', (req, res) => {
-  const { title } = req.body;
-  const file = rewards[title];
-  if (file) io.emit('play', file);
-  res.sendStatus(200);
 });
 
 io.on('connection', socket => {
