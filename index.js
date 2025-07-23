@@ -35,7 +35,8 @@ app.post('/webhook', (req, res) => {
   const msgType = req.header('Twitch-Eventsub-Message-Type');
 
   if (msgType === 'webhook_callback_verification') {
-    return res.status(200).send(challenge);
+    console.log('✅ Verificación recibida de Twitch');
+    return res.status(200).send(challenge);  // ¡Devolver exactamente el challenge!
   }
 
   if (msgType === 'notification') {
