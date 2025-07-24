@@ -249,3 +249,12 @@ app.post('/admin/register-eventsub-test', async (req, res) => {
     res.status(500).send('Registration failed');
   }
 });
+
+
+app.get('/admin/token-status', (req, res) => {
+  res.json({
+    user_id: global.userId || null,
+    access_token: global.accessToken || null,
+    has_token: !!global.accessToken
+  });
+});
