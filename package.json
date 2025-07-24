@@ -1,15 +1,16 @@
-
 {
-  "name": "twitch-alert-system",
+  "name": "alertas-twitch",
   "version": "1.0.0",
-  "main": "backend/server.js",
+  "main": "server.js",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "dotenv": "^16.3.1",
     "express": "^4.18.2",
+    "ws": "^8.12.0",
+    "node-fetch": "^2.6.9",
+    "body-parser": "^1.20.2",
     "express-session": "^1.17.3",
-    "node-fetch": "^2.6.7"
+    "dotenv": "^16.3.1"
   }
 }
