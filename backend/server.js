@@ -164,3 +164,20 @@ io.on('connection', socket => {
 
 const port = process.env.PORT || 3000;
 server.listen(port, () => console.log(`Listening on ${port}`));
+
+
+// 👇 Nueva ruta para ver las suscripciones EventSub desde el panel
+app.get('/eventsub/subscriptions', async (req, res) => {
+  try {
+    const response = await axios.get('https://api.twitch.tv/helix/eventsub/subscriptions', {
+      headers: {
+        'Client-ID': process.env.TWITCH_CLIENT_ID,
+        'Authorization': `Bearer ${req.session.token}`
+      }
+    });
+    res.json({ subscriptions: response.data.data });
+  } catch (err) {
+    console.error('Error fetching EventSub subs:', err.response?.data || err.message);
+    res.status(500).send('Failed to fetch subscriptions');
+  }
+});
