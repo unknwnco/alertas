@@ -4,23 +4,30 @@ const path = require('path');
 const session = require('express-session');
 const axios = require('axios');
 const fs = require('fs');
-const { Server } = require('socket.io');
 const http = require('http');
-const rewards = require('./rewards.json');
+const { Server } = require('socket.io');
+const { registerEventSub, verifyTwitchSignature } = require('./eventsub');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
+const rewards = require('./rewards.json');
 
+app.set('socketio', io);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({ secret: process.env.SESSION_SECRET || 'secret', resave: false, saveUninitialized: false }));
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'secret',
+  resave: false,
+  saveUninitialized: false
+}));
 
 app.use(express.static(path.join(__dirname, '../frontend/public')));
 app.use('/admin', express.static(path.join(__dirname, '../frontend/admin')));
+app.use('/media', express.static(path.join(__dirname, '../frontend/public/media')));
 
-// Twitch OAuth login
+// OAuth login
 app.get('/auth/twitch', (req, res) => {
-  const redirect = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email channel:manage:redemptions`;
+  const redirect = `https://id.twitch.tv/oauth2/authorize?client_id=${process.env.TWITCH_CLIENT_ID}&redirect_uri=${process.env.CALLBACK_URL}&response_type=code&scope=user:read:email channel:manage:redemptions channel:read:redemptions`;
   res.redirect(redirect);
 });
 
@@ -46,13 +53,27 @@ app.get('/auth/twitch/callback', async (req, res) => {
 
     req.session.user = user.data.data[0];
     req.session.token = data.access_token;
+
+    await registerEventSub({
+      user_id: req.session.user.id,
+      access_token: data.access_token,
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
+      secret: process.env.EVENTSUB_SECRET
+    });
+
     res.redirect('/admin');
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err.response?.data || err);
     res.status(500).send('Auth failed');
   }
 });
 
+// Overlay endpoint
+app.get('/overlay', (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/public/overlay.html'));
+});
+
+// Rewards API
 app.get('/rewards', (req, res) => {
   if (!req.session.user) return res.status(401).send('Unauthorized');
   res.json(rewards);
@@ -72,7 +93,6 @@ app.post('/simulate', (req, res) => {
   res.sendStatus(200);
 });
 
-// Create reward on Twitch
 app.post('/rewards/create-on-twitch', async (req, res) => {
   if (!req.session.user || !req.session.user.id || !req.session.token) {
     return res.status(401).send('Unauthorized');
@@ -85,7 +105,7 @@ app.post('/rewards/create-on-twitch', async (req, res) => {
   }
 
   try {
-    const twitchResponse = await axios.post(
+    await axios.post(
       'https://api.twitch.tv/helix/channel_points/custom_rewards',
       {
         title: title.trim(),
@@ -104,18 +124,38 @@ app.post('/rewards/create-on-twitch', async (req, res) => {
         }
       }
     );
-
-    console.log("✅ Reward created:", twitchResponse.data);
     res.sendStatus(200);
   } catch (err) {
-    console.error("❌ Twitch API error:", err.response?.status, err.response?.data);
+    console.error("Twitch API error:", err.response?.status, err.response?.data);
     res.status(500).send(err.response?.data?.message || 'Twitch API error');
   }
 });
 
-// ✅ SERVE OVERLAY HTML EXPLICITLY
-app.get('/overlay', (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/public/overlay.html'));
+// EventSub listener
+app.post('/eventsub/twitch', express.raw({ type: 'application/json' }), (req, res) => {
+  const rawBody = req.body.toString();
+  const headers = req.headers;
+  const secret = process.env.EVENTSUB_SECRET;
+
+  if (!verifyTwitchSignature(secret, rawBody, headers)) {
+    return res.status(403).send('Invalid signature');
+  }
+
+  const messageType = headers['twitch-eventsub-message-type'];
+  const body = JSON.parse(rawBody);
+
+  if (messageType === 'webhook_callback_verification') {
+    return res.status(200).send(body.challenge);
+  }
+
+  if (messageType === 'notification') {
+    const { reward } = body.event;
+    const file = rewards[reward.title];
+    if (file) io.emit('play', file);
+    return res.sendStatus(204);
+  }
+
+  res.sendStatus(204);
 });
 
 io.on('connection', socket => {
