@@ -5,7 +5,7 @@ const querystring = require('querystring');
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
+const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'https://alertas-c8s5.onrender.com/auth/twitch/callback';
 const SCOPE = 'user:read:email channel:manage:redemptions';
 
 function setupAuth(app) {
