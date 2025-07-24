@@ -57,7 +57,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
     await registerEventSub({
       user_id: req.session.user.id,
       access_token: data.access_token,
-      callbackURL: process.env.EVENTSUB_CALLBACK_URL || 'https://TU_DOMINIO.onrender.com/eventsub/twitch',
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
       secret: process.env.EVENTSUB_SECRET
     });
 
@@ -193,7 +193,7 @@ app.post('/eventsub/register', async (req, res) => {
     await registerEventSub({
       user_id: req.session.user.id,
       access_token: req.session.token,
-      callbackURL: process.env.EVENTSUB_CALLBACK_URL || 'https://alertas-c8s5.onrender.com/eventsub/twitch',
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
       secret: process.env.EVENTSUB_SECRET
     });
 
@@ -202,4 +202,44 @@ app.post('/eventsub/register', async (req, res) => {
     console.error("Failed to re-register EventSub:", err.response?.data || err.message);
     res.status(500).send("Failed to register EventSub");
   }
+});
+
+
+// 📩 Twitch EventSub handler
+
+app.post('/eventsub/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
+  const messageId = req.header('Twitch-Eventsub-Message-Id');
+  const timestamp = req.header('Twitch-Eventsub-Message-Timestamp');
+  const signature = req.header('Twitch-Eventsub-Message-Signature');
+  const secret = process.env.EVENTSUB_SECRET;
+  const body = req.body;
+
+  const message = messageId + timestamp + body;
+  const hmac = crypto.createHmac('sha256', secret).update(message).digest('hex');
+  const expectedSignature = 'sha256=' + hmac;
+
+  if (expectedSignature !== signature) {
+    console.warn('❌ Invalid Twitch signature');
+    return res.status(403).send('Forbidden');
+  }
+
+  const notification = JSON.parse(body);
+
+  if (req.header('Twitch-Eventsub-Message-Type') === 'webhook_callback_verification') {
+    console.log('🔁 Responding to Twitch challenge...');
+    return res.status(200).send(notification.challenge);
+  }
+
+  if (req.header('Twitch-Eventsub-Message-Type') === 'notification') {
+    const redemption = notification.event;
+    console.log('🔔 Redemption received:', redemption);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('play', redemption.reward.title);
+    }
+    return res.sendStatus(204);
+  }
+
+  res.sendStatus(200);
 });
