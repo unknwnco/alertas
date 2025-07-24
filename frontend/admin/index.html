@@ -1,98 +1,48 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <title>Panel de Recompensas Twitch</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      background-color: #111;
-      color: #fff;
-      padding: 20px;
-    }
-    h1 {
-      color: #1db954;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-    }
-    input {
-      width: 100%;
-      padding: 6px;
-      margin-top: 4px;
-      margin-bottom: 12px;
-      border: none;
-      border-radius: 4px;
-    }
-    button {
-      background-color: #1db954;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    #log {
-      margin-top: 20px;
-      background: #222;
-      padding: 10px;
-      border-radius: 4px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Gestor de Recompensas</title>
 </head>
 <body>
-  <h1>Crear Recompensa de Twitch</h1>
+  <h1>Crear Recompensa con Video de YouTube</h1>
+  <form id="rewardForm">
+    <label for="title">Título de la Recompensa:</label><br>
+    <input type="text" id="title" name="title" required><br><br>
 
-  <form id="reward-form">
-    <label for="title">Título de la recompensa</label>
-    <input type="text" id="title" required />
+    <label for="cost">Costo (puntos):</label><br>
+    <input type="number" id="cost" name="cost" required><br><br>
 
-    <label for="cost">Costo (puntos)</label>
-    <input type="number" id="cost" required />
+    <label for="videoUrl">URL del Video de YouTube:</label><br>
+    <input type="url" id="videoUrl" name="videoUrl" required><br><br>
 
-    <label for="prompt">Descripción</label>
-    <input type="text" id="prompt" />
-
-    <label for="youtube">URL del video de YouTube</label>
-    <input type="url" id="youtube" required placeholder="https://www.youtube.com/watch?v=..." />
-
-    <button type="submit">Crear recompensa</button>
+    <button type="submit">Crear Recompensa</button>
   </form>
 
-  <div id="log"></div>
-
   <script>
-    const log = (msg) => {
-      const div = document.getElementById('log');
-      div.innerHTML += `<div>> ${msg}</div>`;
-    };
-
-    document.getElementById('reward-form').addEventListener('submit', async (e) => {
+    document.getElementById('rewardForm').addEventListener('submit', async function (e) {
       e.preventDefault();
 
-      const title = document.getElementById('title').value;
-      const cost = document.getElementById('cost').value;
-      const prompt = document.getElementById('prompt').value;
-      const youtube = document.getElementById('youtube').value;
+      const data = {
+        title: document.getElementById('title').value,
+        cost: parseInt(document.getElementById('cost').value),
+        videoUrl: document.getElementById('videoUrl').value
+      };
 
       try {
-        const res = await fetch('/admin/create-reward', {
+        const res = await fetch('/crear-recompensa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, cost, prompt, youtube })
+          body: JSON.stringify(data)
         });
 
-        const data = await res.json();
-        if (res.ok) {
-          log('✅ Recompensa creada correctamente');
-        } else {
-          log('❌ Error al crear recompensa: ' + JSON.stringify(data));
-        }
+        if (!res.ok) throw new Error('Error HTTP ' + res.status);
+
+        const result = await res.json();
+        alert('Recompensa creada exitosamente con ID: ' + result.rewardId);
       } catch (err) {
-        log('❌ Error de red: ' + err.message);
+        console.error('[❌] Error:', err);
+        alert('Error al crear recompensa: ' + err.message);
       }
     });
   </script>
