@@ -1,128 +1,83 @@
 
 const express = require('express');
+const path = require('path');
+const http = require('http');
+const WebSocket = require('ws');
+const bodyParser = require('body-parser');
 const session = require('express-session');
 const fetch = require('node-fetch');
-const dotenv = require('dotenv');
-const path = require('path');
 
-dotenv.config();
+require('dotenv').config({ path: path.join(__dirname, '..', 'alertas.env') });
 
 const app = express();
-app.use(express.json());
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
-// Servir archivos estáticos desde /admin
-app.use('/admin', express.static(path.join(__dirname, '..', 'frontend', 'admin')));
-app.use(express.urlencoded({ extended: true }));
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'keyboard cat',
-  resave: false,
-  saveUninitialized: true
-}));
+const rewardVideoMap = new Map(); // reward_id -> YouTube URL
+let wsClients = [];
 
-const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-const CALLBACK_URL = process.env.CALLBACK_URL;
-const SCOPES = 'user:read:email channel:read:redemptions channel:manage:redemptions';
-
-let globalAccessToken = null;
-let globalUserId = null;
-
-// OAuth login start
-app.get('/auth/twitch', (req, res) => {
-  const authUrl = `https://id.twitch.tv/oauth2/authorize?response_type=code&client_id=${CLIENT_ID}&redirect_uri=${CALLBACK_URL}&scope=${encodeURIComponent(SCOPES)}`;
-  res.redirect(authUrl);
-});
-
-// OAuth callback
-app.get('/auth/twitch/callback', async (req, res) => {
-  const code = req.query.code;
-  try {
-    const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: CALLBACK_URL
-      })
-    });
-    const tokenData = await tokenRes.json();
-    const accessToken = tokenData.access_token;
-
-    const userRes = await fetch('https://api.twitch.tv/helix/users', {
-      headers: {
-        'Client-ID': CLIENT_ID,
-        'Authorization': 'Bearer ' + accessToken
-      }
-    });
-    const userData = await userRes.json();
-    const user = userData.data[0];
-
-    globalAccessToken = accessToken;
-    globalUserId = user.id;
-
-    console.log(`🔐 Authenticated Twitch user: ${user.display_name} (id: ${user.id})`);
-    res.redirect('/admin/index.html');
-  } catch (err) {
-    console.error('OAuth Error:', err);
-    res.status(500).send('OAuth failed');
-  }
-});
-
-// Token test endpoint
-app.get('/admin/token-status', (req, res) => {
-  res.json({
-    user_id: globalUserId || null,
-    access_token: globalAccessToken || null,
-    has_token: !!globalAccessToken
+wss.on('connection', (ws) => {
+  wsClients.push(ws);
+  ws.on('close', () => {
+    wsClients = wsClients.filter(c => c !== ws);
   });
 });
 
-// Register EventSub manually
-app.post('/admin/register-eventsub-test', async (req, res) => {
-  const callbackURL = process.env.EVENTSUB_CALLBACK_URL;
-  const secret = process.env.EVENTSUB_SECRET;
+const sendToOverlay = (data) => {
+  const payload = JSON.stringify(data);
+  wsClients.forEach(ws => ws.send(payload));
+};
 
-  if (!callbackURL || !globalAccessToken || !globalUserId || !secret) {
-    return res.status(400).send('Missing required environment variables or session data.');
+app.use(bodyParser.json());
+app.use(session({ secret: 'twitch_secret', resave: false, saveUninitialized: true }));
+
+// Static files
+app.use('/admin', express.static(path.join(__dirname, '..', 'frontend', 'admin')));
+app.use('/overlay', express.static(path.join(__dirname, '..', 'frontend')));
+
+// Simulación manual
+app.post('/simulate', (req, res) => {
+  // Simula el último video agregado
+  const values = Array.from(rewardVideoMap.values());
+  if (values.length > 0) {
+    const lastURL = values[values.length - 1];
+    sendToOverlay({ type: 'play_youtube', url: lastURL });
+    return res.send({ ok: true });
   }
-
-  try {
-    const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
-      method: 'POST',
-      headers: {
-        'Client-ID': CLIENT_ID,
-        'Authorization': 'Bearer ' + globalAccessToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        type: 'channel.channel_points_custom_reward_redemption.add',
-        version: '1',
-        condition: { broadcaster_user_id: globalUserId },
-        transport: {
-          method: 'webhook',
-          callback: callbackURL,
-          secret: secret
-        }
-      })
-    });
-
-    const json = await response.json();
-    console.log('📡 Manual Register Response:', json);
-    if (!response.ok) return res.status(500).send(JSON.stringify(json));
-    res.send('Registered successfully');
-  } catch (err) {
-    console.error('Register EventSub Error:', err);
-    res.status(500).send('Registration failed');
-  }
+  res.status(404).send({ error: 'No hay recompensas configuradas' });
 });
 
-// Static frontend
-app.use(express.static(path.join(__dirname, 'frontend')));
+// Crear recompensa (mock, no usa API real)
+app.post('/admin/create-reward', async (req, res) => {
+  const { title, cost, prompt, youtube } = req.body;
 
-const port = process.env.PORT || 3000;
-app.listen(port, () => {
-  console.log('🚀 Server running on port', port);
+  if (!title || !cost || !youtube) {
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  }
+
+  // Simula un reward_id generado
+  const fakeRewardId = `${Date.now()}`;
+  rewardVideoMap.set(fakeRewardId, youtube);
+
+  console.log('[🎁] Recompensa registrada:', title, '->', youtube);
+  res.json({ ok: true, reward_id: fakeRewardId });
+});
+
+// Endpoint para simular un canje real
+app.post('/admin/test-reward/:id', (req, res) => {
+  const videoURL = rewardVideoMap.get(req.params.id);
+  if (!videoURL) return res.status(404).send({ error: 'Recompensa no encontrada' });
+
+  sendToOverlay({ type: 'play_youtube', url: videoURL });
+  res.send({ ok: true });
+});
+
+// WebSocket endpoint
+app.get('/ws', (req, res) => {
+  res.status(426).send('Use WebSocket');
+});
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 Servidor iniciado en http://localhost:${PORT}`);
 });
