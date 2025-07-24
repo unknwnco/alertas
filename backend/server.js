@@ -208,8 +208,8 @@ app.post('/eventsub/register', async (req, res) => {
 // Manual registration test endpoint
 app.post('/admin/register-eventsub-test', async (req, res) => {
   const callbackURL = process.env.EVENTSUB_CALLBACK_URL;
-  const accessToken = process.env.TWITCH_ACCESS_TOKEN;
-  const userId = process.env.TWITCH_USER_ID;
+  const accessToken = global.accessToken || process.env.TWITCH_ACCESS_TOKEN;
+  const userId = global.userId || process.env.TWITCH_USER_ID;
   const secret = process.env.EVENTSUB_SECRET;
 
   if (!callbackURL || !accessToken || !userId || !secret) {
