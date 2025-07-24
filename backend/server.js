@@ -16,6 +16,10 @@ app.use(session({
   saveUninitialized: true
 }));
 
+// Servir archivos estáticos desde /admin
+app.use('/admin', express.static(path.join(__dirname, '..', 'frontend', 'admin')));
+
+
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
 const CALLBACK_URL = process.env.CALLBACK_URL;
