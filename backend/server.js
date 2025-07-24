@@ -57,7 +57,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
     await registerEventSub({
       user_id: req.session.user.id,
       access_token: data.access_token,
-      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL || 'https://TU_DOMINIO.onrender.com/eventsub/twitch',
       secret: process.env.EVENTSUB_SECRET
     });
 
@@ -193,7 +193,7 @@ app.post('/eventsub/register', async (req, res) => {
     await registerEventSub({
       user_id: req.session.user.id,
       access_token: req.session.token,
-      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL || 'https://alertas-c8s5.onrender.com/eventsub/twitch',
       secret: process.env.EVENTSUB_SECRET
     });
 
