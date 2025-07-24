@@ -1,28 +1,44 @@
+
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin Panel</title>
+  <meta charset="UTF-8">
+  <title>Admin Panel - Twitch Rewards</title>
 </head>
 <body>
-  <h1>Create Reward on Twitch</h1>
-  <form id="createTwitchRewardForm">
-    <input name="title" placeholder="Reward Title" required>
-    <input name="cost" type="number" placeholder="Cost in Points" required>
-    <input name="prompt" placeholder="Reward Prompt/Description" required>
-    <button type="submit">Create on Twitch</button>
+  <h1>Crear recompensa de canal</h1>
+  <form id="create-reward-form">
+    <input type="text" id="reward-title" placeholder="Título de la recompensa" required /><br />
+    <input type="number" id="reward-cost" placeholder="Costo (puntos)" required /><br />
+    <input type="text" id="reward-prompt" placeholder="Descripción / Prompt" required /><br />
+    <button type="submit">Crear</button>
   </form>
-  <hr>
-  <h1>Reward Config for Overlay</h1>
-  <form id="rewardForm">
-    <input name="title" placeholder="Reward Title" required>
-    <input name="file" placeholder="Filename (must be in /media)" required>
-    <button type="submit">Save</button>
-  </form>
-  <h2>Configured Rewards</h2>
-  <ul id="rewardList"></ul>
-  <h2>Simulate Redemption</h2>
-  <select id="simulateSelect"></select>
-  <button id="simulateBtn">Simulate</button>
-  <script src="admin.js"></script>
+
+  <script>
+    document.getElementById('create-reward-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const title = document.getElementById('reward-title').value;
+      const cost = document.getElementById('reward-cost').value;
+      const prompt = document.getElementById('reward-prompt').value;
+
+      const res = await fetch('/admin/create-reward', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ title, cost, prompt })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        alert('✅ Recompensa creada exitosamente');
+      } else {
+        console.error('Error:', data);
+        alert('❌ Error al crear la recompensa: ' + (data?.detail?.message || 'Unknown error'));
+      }
+    });
+  </script>
 </body>
 </html>
