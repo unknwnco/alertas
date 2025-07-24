@@ -61,7 +61,7 @@ app.get('/auth/twitch/callback', async (req, res) => {
     globalUserId = user.id;
 
     console.log(`🔐 Authenticated Twitch user: ${user.display_name} (id: ${user.id})`);
-    res.redirect('/admin/token-status');
+    res.redirect('/admin/index.html');
   } catch (err) {
     console.error('OAuth Error:', err);
     res.status(500).send('OAuth failed');
