@@ -32,6 +32,7 @@ document.getElementById('rewardForm').addEventListener('submit', async e => {
 
 document.getElementById('simulateBtn').addEventListener('click', async () => {
   const title = document.getElementById('simulateSelect').value;
+  if (!title) return alert('No reward selected');
   await fetch('/simulate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -53,6 +54,7 @@ document.getElementById('createTwitchRewardForm').addEventListener('submit', asy
   if (res.ok) {
     alert('Created on Twitch');
     form.reset();
+    await loadRewards();
   } else {
     const msg = await res.text();
     alert('Failed: ' + msg);
