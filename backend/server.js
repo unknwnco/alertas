@@ -181,3 +181,25 @@ app.get('/eventsub/subscriptions', async (req, res) => {
     res.status(500).send('Failed to fetch subscriptions');
   }
 });
+
+
+// 👇 Ruta para registrar manualmente el webhook desde el panel admin
+app.post('/eventsub/register', async (req, res) => {
+  try {
+    if (!req.session.user || !req.session.token) {
+      return res.status(401).send("Not logged in");
+    }
+
+    await registerEventSub({
+      user_id: req.session.user.id,
+      access_token: req.session.token,
+      callbackURL: process.env.EVENTSUB_CALLBACK_URL,
+      secret: process.env.EVENTSUB_SECRET
+    });
+
+    res.send("OK");
+  } catch (err) {
+    console.error("Failed to re-register EventSub:", err.response?.data || err.message);
+    res.status(500).send("Failed to register EventSub");
+  }
+});
