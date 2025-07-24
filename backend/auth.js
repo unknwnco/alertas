@@ -1,64 +1,69 @@
-const express = require('express');
-const session = require('express-session');
 const fetch = require('node-fetch');
+const express = require('express');
+const router = express.Router();
 const querystring = require('querystring');
 
-const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID;
-const TWITCH_CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || "https://alertas-c8s5.onrender.com/auth/twitch/callback";
+const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
+const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
+const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
+const SCOPE = 'user:read:email channel:manage:redemptions';
 
 function setupAuth(app) {
-  app.use(session({
-    secret: 'supersecretkey',
-    resave: false,
-    saveUninitialized: false,
-  }));
-
   app.get('/auth/twitch', (req, res) => {
-    const params = querystring.stringify({
-      client_id: TWITCH_CLIENT_ID,
+    const authUrl = 'https://id.twitch.tv/oauth2/authorize?' + querystring.stringify({
+      client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       response_type: 'code',
-      scope: 'channel:read:redemptions channel:manage:redemptions',
+      scope: SCOPE
     });
-    res.redirect(`https://id.twitch.tv/oauth2/authorize?${params}`);
+    res.redirect(authUrl);
   });
 
   app.get('/auth/twitch/callback', async (req, res) => {
     const code = req.query.code;
-    if (!code) return res.status(400).send('No code provided');
 
     try {
       const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: querystring.stringify({
-          client_id: TWITCH_CLIENT_ID,
-          client_secret: TWITCH_CLIENT_SECRET,
+          client_id: CLIENT_ID,
+          client_secret: CLIENT_SECRET,
           code,
           grant_type: 'authorization_code',
-          redirect_uri: REDIRECT_URI,
-        }),
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+          redirect_uri: REDIRECT_URI
+        })
       });
 
       const tokenData = await tokenResponse.json();
-      req.session.token = tokenData.access_token;
+      const accessToken = tokenData.access_token;
 
-      const userRes = await fetch('https://api.twitch.tv/helix/users', {
+      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
         headers: {
-          'Client-ID': TWITCH_CLIENT_ID,
-          'Authorization': `Bearer ${tokenData.access_token}`
+          'Client-ID': CLIENT_ID,
+          'Authorization': 'Bearer ' + accessToken
         }
       });
-      const userData = await userRes.json();
-      req.session.user = userData.data[0];
-      console.log('[👤] Usuario autenticado:', req.session.user.display_name);
 
-      res.redirect('/admin/index.html');
+      const userData = await userResponse.json();
+      const user = userData.data[0];
+
+      req.session.access_token = accessToken;
+      req.session.user_id = user.id;
+      req.session.display_name = user.display_name;
+
+      console.log('[✅] Usuario autenticado:', user.display_name);
+      res.redirect('/admin');
     } catch (err) {
-      console.error('[❌] Error en /auth/twitch/callback:', err);
-      res.status(500).send('Error al obtener el token');
+      console.error('[❌] Error autenticando:', err);
+      res.status(500).send('Error autenticando con Twitch');
     }
+  });
+
+  app.get('/logout', (req, res) => {
+    req.session.destroy(() => {
+      res.redirect('/');
+    });
   });
 }
 
