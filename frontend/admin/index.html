@@ -3,16 +3,19 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Admin Panel - Twitch Rewards</title>
+  <title>Panel de Recompensas</title>
 </head>
 <body>
-  <h1>Crear recompensa de canal</h1>
+  <h1>Crear Recompensa</h1>
   <form id="create-reward-form">
-    <input type="text" id="reward-title" placeholder="Título de la recompensa" required /><br />
-    <input type="number" id="reward-cost" placeholder="Costo (puntos)" required /><br />
-    <input type="text" id="reward-prompt" placeholder="Descripción / Prompt" required /><br />
-    <button type="submit">Crear</button>
+    <input type="text" id="reward-title" placeholder="Título" required /><br />
+    <input type="number" id="reward-cost" placeholder="Costo" required /><br />
+    <input type="text" id="reward-prompt" placeholder="Descripción" required /><br />
+    <button type="submit">Crear recompensa</button>
   </form>
+
+  <h2>Simular recompensa</h2>
+  <button id="simulate-btn">Simular</button>
 
   <script>
     document.getElementById('create-reward-form').addEventListener('submit', async (e) => {
@@ -31,12 +34,20 @@
       });
 
       const data = await res.json();
-
       if (res.ok) {
-        alert('✅ Recompensa creada exitosamente');
+        alert('✅ Recompensa creada');
       } else {
         console.error('Error:', data);
-        alert('❌ Error al crear la recompensa: ' + (data?.detail?.message || 'Unknown error'));
+        alert('❌ Error al crear recompensa: ' + (data?.detail?.message || 'desconocido'));
+      }
+    });
+
+    document.getElementById('simulate-btn').addEventListener('click', async () => {
+      const res = await fetch('/simulate', { method: 'POST' });
+      if (res.ok) {
+        alert('✅ Recompensa simulada');
+      } else {
+        alert('❌ Error al simular');
       }
     });
   </script>

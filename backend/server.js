@@ -9,16 +9,15 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
+
+// Servir archivos estáticos desde /admin
+app.use('/admin', express.static(path.join(__dirname, '..', 'frontend', 'admin')));
 app.use(express.urlencoded({ extended: true }));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'keyboard cat',
   resave: false,
   saveUninitialized: true
 }));
-
-// Servir archivos estáticos desde /admin
-app.use('/admin', express.static(path.join(__dirname, '..', 'frontend', 'admin')));
-
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
@@ -126,42 +125,4 @@ app.use(express.static(path.join(__dirname, 'frontend')));
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log('🚀 Server running on port', port);
-});
-
-
-app.post('/admin/create-reward', async (req, res) => {
-  if (!accessToken || !userId) {
-    return res.status(401).send('Unauthorized');
-  }
-
-  const { title, cost, prompt } = req.body;
-
-  try {
-    const response = await fetch(`https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id=${userId}`, {
-      method: 'POST',
-      headers: {
-        'Client-ID': process.env.TWITCH_CLIENT_ID,
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        title,
-        cost: parseInt(cost),
-        prompt,
-        is_enabled: true
-      })
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Failed to create reward:', data);
-      return res.status(500).json({ error: 'Failed to create reward', detail: data });
-    }
-
-    res.json(data);
-  } catch (error) {
-    console.error('Error creating reward:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
 });
