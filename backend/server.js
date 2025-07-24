@@ -205,41 +205,47 @@ app.post('/eventsub/register', async (req, res) => {
 });
 
 
-// 📩 Twitch EventSub handler
-
-app.post('/eventsub/twitch', express.raw({ type: 'application/json' }), async (req, res) => {
-  const messageId = req.header('Twitch-Eventsub-Message-Id');
-  const timestamp = req.header('Twitch-Eventsub-Message-Timestamp');
-  const signature = req.header('Twitch-Eventsub-Message-Signature');
+// Manual registration test endpoint
+app.post('/admin/register-eventsub-test', async (req, res) => {
+  const callbackURL = process.env.EVENTSUB_CALLBACK_URL;
+  const accessToken = process.env.TWITCH_ACCESS_TOKEN;
+  const userId = process.env.TWITCH_USER_ID;
   const secret = process.env.EVENTSUB_SECRET;
-  const body = req.body;
 
-  const message = messageId + timestamp + body;
-  const hmac = crypto.createHmac('sha256', secret).update(message).digest('hex');
-  const expectedSignature = 'sha256=' + hmac;
-
-  if (expectedSignature !== signature) {
-    console.warn('❌ Invalid Twitch signature');
-    return res.status(403).send('Forbidden');
+  if (!callbackURL || !accessToken || !userId || !secret) {
+    return res.status(400).send('Missing required environment variables.');
   }
 
-  const notification = JSON.parse(body);
+  try {
+    const response = await fetch('https://api.twitch.tv/helix/eventsub/subscriptions', {
+      method: 'POST',
+      headers: {
+        'Client-ID': process.env.TWITCH_CLIENT_ID,
+        'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'channel.channel_points_custom_reward_redemption.add',
+        version: '1',
+        condition: {
+          broadcaster_user_id: userId
+        },
+        transport: {
+          method: 'webhook',
+          callback: callbackURL,
+          secret: secret
+        }
+      })
+    });
 
-  if (req.header('Twitch-Eventsub-Message-Type') === 'webhook_callback_verification') {
-    console.log('🔁 Responding to Twitch challenge...');
-    return res.status(200).send(notification.challenge);
-  }
-
-  if (req.header('Twitch-Eventsub-Message-Type') === 'notification') {
-    const redemption = notification.event;
-    console.log('🔔 Redemption received:', redemption);
-
-    const io = req.app.get('io');
-    if (io) {
-      io.emit('play', redemption.reward.title);
+    const json = await response.json();
+    console.log('📡 Manual Register Response:', json);
+    if (!response.ok) {
+      return res.status(500).send(JSON.stringify(json));
     }
-    return res.sendStatus(204);
+    res.send('Registered successfully');
+  } catch (err) {
+    console.error('Error registering EventSub:', err);
+    res.status(500).send('Registration failed');
   }
-
-  res.sendStatus(200);
 });

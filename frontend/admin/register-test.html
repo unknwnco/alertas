@@ -1,0 +1,21 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EventSub Register Test</title>
+  <script>
+    async function registerEventSub() {
+      const res = await fetch('/admin/register-eventsub-test', {
+        method: 'POST'
+      });
+      const text = await res.text();
+      document.getElementById('result').innerText = '✅ ' + text;
+    }
+  </script>
+</head>
+<body style="background:#111; color:#fff; font-family:sans-serif; text-align:center; padding-top:50px;">
+  <h1>🔧 EventSub Manual Register Test</h1>
+  <button onclick="registerEventSub()" style="font-size:20px; padding:10px 20px;">Test Register</button>
+  <pre id="result" style="margin-top:30px; font-size:18px;"></pre>
+</body>
+</html>
