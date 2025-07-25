@@ -1,25 +1,22 @@
 <!DOCTYPE html>
+
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Gestor de Recompensas</title>
+<meta charset="utf-8"/>
+<title>Gestor de Recompensas</title>
 </head>
 <body>
-  <h1>Crear Recompensa con Video de YouTube</h1>
-  <form id="rewardForm">
-    <label for="title">Título de la Recompensa:</label><br>
-    <input type="text" id="title" name="title" required><br><br>
-
-    <label for="cost">Costo (puntos):</label><br>
-    <input type="number" id="cost" name="cost" required><br><br>
-
-    <label for="videoUrl">URL del Video de YouTube:</label><br>
-    <input type="url" id="videoUrl" name="videoUrl" required><br><br>
-
-    <button type="submit">Crear Recompensa</button>
-  </form>
-
-  <script>
+<h1>Crear Recompensa con Video de YouTube</h1>
+<form id="rewardForm">
+<label for="title">Título de la Recompensa:</label><br/>
+<input id="title" name="title" required="" type="text"/><br/><br/>
+<label for="cost">Costo (puntos):</label><br/>
+<input id="cost" name="cost" required="" type="number"/><br/><br/>
+<label for="videoUrl">URL del Video de YouTube:</label><br/>
+<input id="videoUrl" name="videoUrl" required="" type="url"/><br/><br/>
+<button type="submit">Crear Recompensa</button>
+</form>
+<script>
     document.getElementById('rewardForm').addEventListener('submit', async function (e) {
       e.preventDefault();
 

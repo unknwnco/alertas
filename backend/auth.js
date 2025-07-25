@@ -1,12 +1,11 @@
-const fetch = require('node-fetch');
 const express = require('express');
-const router = express.Router();
+const fetch = require('node-fetch');
 const querystring = require('querystring');
+const router = express.Router();
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'https://alertas-c8s5.onrender.com/auth/twitch/callback';
-const SCOPE = 'user:read:email channel:manage:redemptions';
+const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
 
 function setupAuth(app) {
   app.get('/auth/twitch', (req, res) => {
@@ -14,7 +13,7 @@ function setupAuth(app) {
       client_id: CLIENT_ID,
       redirect_uri: REDIRECT_URI,
       response_type: 'code',
-      scope: SCOPE
+      scope: 'user:read:email channel:manage:redemptions'
     });
     res.redirect(authUrl);
   });
@@ -22,53 +21,36 @@ function setupAuth(app) {
   app.get('/auth/twitch/callback', async (req, res) => {
     const code = req.query.code;
 
-    try {
-      const tokenResponse = await fetch('https://id.twitch.tv/oauth2/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: querystring.stringify({
-          client_id: CLIENT_ID,
-          client_secret: CLIENT_SECRET,
-          code,
-          grant_type: 'authorization_code',
-          redirect_uri: REDIRECT_URI
-        })
-      });
+    const tokenRes = await fetch('https://id.twitch.tv/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: querystring.stringify({
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        code,
+        grant_type: 'authorization_code',
+        redirect_uri: REDIRECT_URI
+      })
+    });
 
-      const tokenData = await tokenResponse.json();
+    const tokenData = await tokenRes.json();
+    const access_token = tokenData.access_token;
 
-      if (!tokenData.access_token) {
-        console.error('[❌] Error al obtener token:', tokenData);
-        return res.status(500).send('Error obteniendo token de Twitch: ' + JSON.stringify(tokenData));
+    const userRes = await fetch('https://api.twitch.tv/helix/users', {
+      headers: {
+        'Client-ID': CLIENT_ID,
+        'Authorization': 'Bearer ' + access_token
       }
+    });
 
-      const accessToken = tokenData.access_token;
+    const userData = await userRes.json();
+    const user = userData.data[0];
 
-      const userResponse = await fetch('https://api.twitch.tv/helix/users', {
-        headers: {
-          'Client-ID': CLIENT_ID,
-          'Authorization': 'Bearer ' + accessToken
-        }
-      });
+    req.session.access_token = access_token;
+    req.session.user_id = user.id;
+    req.session.display_name = user.display_name;
 
-      const userData = await userResponse.json();
-      if (!userData.data || userData.data.length === 0) {
-        console.error('[❌] Error al obtener usuario:', userData);
-        return res.status(500).send('Error obteniendo usuario de Twitch');
-      }
-
-      const user = userData.data[0];
-
-      req.session.access_token = accessToken;
-      req.session.user_id = user.id;
-      req.session.display_name = user.display_name;
-
-      console.log('[✅] Usuario autenticado:', user.display_name);
-      res.redirect('/admin');
-    } catch (err) {
-      console.error('[❌] Error autenticando con Twitch:', err);
-      res.status(500).send('Error autenticando con Twitch');
-    }
+    res.redirect('/admin');
   });
 
   app.get('/logout', (req, res) => {
