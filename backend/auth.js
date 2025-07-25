@@ -36,6 +36,12 @@ function setupAuth(app) {
       });
 
       const tokenData = await tokenResponse.json();
+
+      if (!tokenData.access_token) {
+        console.error('[❌] Error al obtener token:', tokenData);
+        return res.status(500).send('Error obteniendo token de Twitch: ' + JSON.stringify(tokenData));
+      }
+
       const accessToken = tokenData.access_token;
 
       const userResponse = await fetch('https://api.twitch.tv/helix/users', {
@@ -46,6 +52,11 @@ function setupAuth(app) {
       });
 
       const userData = await userResponse.json();
+      if (!userData.data || userData.data.length === 0) {
+        console.error('[❌] Error al obtener usuario:', userData);
+        return res.status(500).send('Error obteniendo usuario de Twitch');
+      }
+
       const user = userData.data[0];
 
       req.session.access_token = accessToken;
@@ -55,7 +66,7 @@ function setupAuth(app) {
       console.log('[✅] Usuario autenticado:', user.display_name);
       res.redirect('/admin');
     } catch (err) {
-      console.error('[❌] Error autenticando:', err);
+      console.error('[❌] Error autenticando con Twitch:', err);
       res.status(500).send('Error autenticando con Twitch');
     }
   });
