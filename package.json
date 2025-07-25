@@ -1,16 +1,13 @@
 {
-  "name": "alertas-twitch",
+  "name": "twitch-rewards-app",
   "version": "1.0.0",
-  "main": "backend/server.js",
   "scripts": {
-    "start": "node backend/server.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "ws": "^8.12.0",
-    "node-fetch": "^2.6.9",
-    "body-parser": "^1.20.2",
-    "express-session": "^1.17.3",
-    "dotenv": "^16.3.1"
+    "axios": "^1.6.7",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2"
   }
 }

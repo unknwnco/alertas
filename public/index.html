@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Crear recompensa de Twitch</title>
+</head>
+<body>
+  <h1>Crear recompensa</h1>
+  <a href="/auth/twitch"><button>Iniciar sesión con Twitch</button></a>
+
+  <form id="form" style="margin-top: 20px;">
+    <input name="title" placeholder="Título" required><br>
+    <input name="cost" type="number" placeholder="Costo en puntos" required><br>
+    <input name="prompt" placeholder="Descripción (opcional)"><br>
+    <button type="submit">Crear recompensa</button>
+  </form>
+
+  <pre id="respuesta"></pre>
+
+  <script>
+    const form = document.getElementById('form');
+    const respuesta = document.getElementById('respuesta');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(form).entries());
+
+      const res = await fetch('/create-reward', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      const json = await res.json();
+      respuesta.textContent = JSON.stringify(json, null, 2);
+    });
+  </script>
+</body>
+</html>
