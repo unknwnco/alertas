@@ -18,7 +18,7 @@ const {
 // Redirige a Twitch para hacer login
 app.get('/auth/twitch', (req, res) => {
   const scope = 'channel:manage:redemptions user:read:email';
-  const url = `https://id.twitch.tv/oauth2/authorize?client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&response_type=code&scope=${scope}`;
+const url = `https://id.twitch.tv/oauth2/authorize?client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&response_type=code&scope=${scope}`;
   res.redirect(url);
 });
 
@@ -97,3 +97,4 @@ app.post('/create-reward', async (req, res) => {
 // Escucha en el puerto asignado por Render o 3000 por defecto
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+ddd
