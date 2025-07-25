@@ -97,4 +97,3 @@ app.post('/create-reward', async (req, res) => {
 // Escucha en el puerto asignado por Render o 3000 por defecto
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
-ddd
