@@ -5,7 +5,7 @@ const router = express.Router();
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
-const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'http://localhost:3000/auth/twitch/callback';
+const REDIRECT_URI = process.env.TWITCH_REDIRECT_URI || 'https://alertas-c8s5.onrender.com/auth/twitch/callback';
 
 function setupAuth(app) {
   app.get('/auth/twitch', (req, res) => {
