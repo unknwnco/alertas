@@ -25,17 +25,14 @@
   <script>
     const socket = new WebSocket(`wss://${location.host}`);
 
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.tipo === 'alerta') {
-        const alerta = document.getElementById('alerta');
-        alerta.textContent = `🔥 ${data.usuario} canjeó "${data.recompensa}"`;
-        alerta.style.display = 'block';
+const socket = new WebSocket(`wss://${location.host}`);
 
-        setTimeout(() => {
-          alerta.style.display = 'none';
-        }, 5000);
-      }
+socket.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Alerta recibida:', data);
+  // Aquí puedes mostrar la alerta en pantalla, como iniciar video, etc.
+};
+
     };
   </script>
 </body>
