@@ -4,21 +4,18 @@ const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 const http = require('http');
-const crypto = require('crypto');
 const { wss, enviarAlerta } = require('./ws-server');
 
 const app = express();
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.static('public'));
-app.use(express.raw({ type: 'application/json' })); // necesario para validar firmas EventSub
 
 const {
   TWITCH_CLIENT_ID,
   TWITCH_CLIENT_SECRET,
   TWITCH_REDIRECT_URI,
-  EVENTSUB_SECRET,
-  EVENTSUB_CALLBACK_URL
+  PUBLIC_URL
 } = process.env;
 
 // Redirige a Twitch para hacer login
@@ -53,9 +50,10 @@ app.get('/auth/twitch/callback', async (req, res) => {
     });
 
     const user = userInfo.data.data[0];
-
     res.cookie('access_token', access_token, { httpOnly: true });
     res.cookie('user_id', user.id, { httpOnly: true });
+
+    await suscribirACanje(access_token, user.id);
     res.redirect('/');
   } catch (err) {
     console.error(err.response?.data || err.message);
@@ -67,9 +65,12 @@ app.get('/auth/twitch/callback', async (req, res) => {
 app.post('/create-reward', async (req, res) => {
   const token = req.cookies.access_token;
   const broadcaster_id = req.cookies.user_id;
-  const { title, cost, prompt } = req.body;
 
-  if (!token || !broadcaster_id) return res.status(401).json({ error: 'No autorizado' });
+  if (!token || !broadcaster_id) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  const { title, cost, prompt } = req.body;
 
   try {
     const response = await axios.post(
@@ -84,23 +85,27 @@ app.post('/create-reward', async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Client-ID': TWITCH_CLIENT_ID
+          'Client-ID': TWITCH_CLIENT_ID,
+          'Content-Type': 'application/json'
         }
       }
     );
+
     res.json({ success: true, reward: response.data });
   } catch (err) {
     console.error(err.response?.data || err.message);
-    res.status(500).json({ error: err.response?.data || err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// Obtener recompensas existentes
+// Obtener recompensas
 app.get('/rewards', async (req, res) => {
   const token = req.cookies.access_token;
   const broadcaster_id = req.cookies.user_id;
 
-  if (!token || !broadcaster_id) return res.status(401).json({ error: 'No autorizado' });
+  if (!token || !broadcaster_id) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
 
   try {
     const response = await axios.get(
@@ -112,6 +117,7 @@ app.get('/rewards', async (req, res) => {
         }
       }
     );
+
     res.json(response.data.data);
   } catch (err) {
     console.error(err.response?.data || err.message);
@@ -119,75 +125,58 @@ app.get('/rewards', async (req, res) => {
   }
 });
 
-// Suscripción a eventos de redención
-app.post('/subscribe-reward-events', async (req, res) => {
-  const accessToken = req.cookies.access_token;
-  const userId = req.cookies.user_id;
+// Endpoint de EventSub para recibir notificaciones
+app.post('/eventsub', express.json({ type: 'application/json' }), async (req, res) => {
+  const messageType = req.header('Twitch-Eventsub-Message-Type');
+  const { challenge, event } = req.body;
 
-  if (!accessToken || !userId) return res.status(401).json({ error: 'No autorizado' });
+  if (messageType === 'webhook_callback_verification') {
+    return res.status(200).send(challenge);
+  }
 
+  if (messageType === 'notification') {
+    console.log('🎯 Canjeo recibido:', event);
+
+    if (event.reward && event.user_input !== undefined) {
+      enviarAlerta({ message: `🔔 ${event.user_name} canjeó: ${event.reward.title}` });
+    }
+
+    return res.sendStatus(204);
+  }
+
+  res.sendStatus(204);
+});
+
+// Función para suscribirse a canjes con EventSub
+async function suscribirACanje(token, user_id) {
   try {
-    const response = await axios.post('https://api.twitch.tv/helix/eventsub/subscriptions', {
+    await axios.post('https://api.twitch.tv/helix/eventsub/subscriptions', {
       type: 'channel.channel_points_custom_reward_redemption.add',
       version: '1',
-      condition: { broadcaster_user_id: userId },
+      condition: { broadcaster_user_id: user_id },
       transport: {
         method: 'webhook',
-        callback: EVENTSUB_CALLBACK_URL,
-        secret: EVENTSUB_SECRET
+        callback: `${PUBLIC_URL}/eventsub`,
+        secret: 'mi_secreto_eventsub'
       }
     }, {
       headers: {
         'Client-ID': TWITCH_CLIENT_ID,
-        'Authorization': `Bearer ${accessToken}`
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
     });
 
-    res.json({ success: true, data: response.data });
+    console.log('📬 Suscripción a EventSub creada con éxito');
   } catch (err) {
-    console.error('Error al suscribirse a EventSub:', err.response?.data || err.message);
-    res.status(500).json({ error: 'Fallo al activar el webhook.' });
+    console.error('❌ Error al suscribirse a EventSub:', err.response?.data || err.message);
   }
-});
+}
 
-// Endpoint EventSub para recibir redenciones
-app.post('/eventsub', (req, res) => {
-  const messageId = req.headers['twitch-eventsub-message-id'];
-  const timestamp = req.headers['twitch-eventsub-message-timestamp'];
-  const signature = req.headers['twitch-eventsub-message-signature'];
-  const messageType = req.headers['twitch-eventsub-message-type'];
-
-  const body = req.body;
-  const computedHmac = 'sha256=' + crypto.createHmac('sha256', EVENTSUB_SECRET)
-    .update(messageId + timestamp + body)
-    .digest('hex');
-
-  if (computedHmac !== signature) {
-    console.warn('Firma inválida');
-    return res.status(403).send('Firma no válida');
-  }
-
-  const jsonBody = JSON.parse(body);
-
-  if (messageType === 'webhook_callback_verification') {
-    return res.status(200).send(jsonBody.challenge);
-  }
-
-  if (messageType === 'notification') {
-    const event = jsonBody.event;
-    console.log('🔔 Redención recibida:', event);
-    enviarAlerta({ mensaje: `🎉 ${event.user_name} canjeó: ${event.reward.title}` });
-    return res.status(200).end();
-  }
-
-  res.status(200).end();
-});
-
-// WebSocket upgrade
 const server = http.createServer(app);
-server.on('upgrade', (req, socket, head) => {
-  wss.handleUpgrade(req, socket, head, (ws) => {
-    wss.emit('connection', ws, req);
+server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, ws => {
+    wss.emit('connection', ws, request);
   });
 });
 
