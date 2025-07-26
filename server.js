@@ -94,6 +94,34 @@ app.post('/create-reward', async (req, res) => {
   }
 });
 
+// Obtener todas las recompensas del canal
+app.get('/rewards', async (req, res) => {
+  const token = req.cookies.access_token;
+  const broadcaster_id = req.cookies.user_id;
+
+  if (!token || !broadcaster_id) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  try {
+    const response = await axios.get(
+      `https://api.twitch.tv/helix/channel_points/custom_rewards?broadcaster_id=${broadcaster_id}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Client-ID': process.env.TWITCH_CLIENT_ID
+        }
+      }
+    );
+
+    res.json(response.data.data); // devuelve solo el array de recompensas
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Escucha en el puerto asignado por Render o 3000 por defecto
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));

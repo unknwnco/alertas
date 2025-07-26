@@ -35,5 +35,29 @@
       respuesta.textContent = JSON.stringify(json, null, 2);
     });
   </script>
+<h2>Tus recompensas</h2>
+<div id="rewards"></div>
+
+<script>
+  async function cargarRecompensas() {
+    try {
+      const res = await fetch('/rewards');
+      const rewards = await res.json();
+
+      const contenedor = document.getElementById('rewards');
+      contenedor.innerHTML = rewards.map(r => `
+        <div style="border:1px solid #ccc; padding:10px; margin-bottom:10px;">
+          <strong>${r.title}</strong> - ${r.cost} puntos<br>
+          <small>${r.prompt || 'Sin descripción'}</small>
+        </div>
+      `).join('');
+    } catch (err) {
+      console.error('Error al cargar recompensas:', err);
+    }
+  }
+
+  cargarRecompensas();
+</script>
+
 </body>
 </html>
