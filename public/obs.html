@@ -27,17 +27,12 @@
 
     socket.onmessage = (event) => {
       const data = JSON.parse(event.data);
-      console.log('Alerta recibida:', data);
-
-      // Mostrar la alerta en pantalla
-      const alerta = document.getElementById('alerta');
-      alerta.textContent = data.mensaje || '¡Alerta!';
-      alerta.style.display = 'block';
-
-      // Ocultar después de 5 segundos
-      setTimeout(() => {
-        alerta.style.display = 'none';
-      }, 5000);
+      if (data.tipo === 'alerta') {
+        const alerta = document.getElementById('alerta');
+        alerta.textContent = data.mensaje;
+        alerta.style.display = 'block';
+        setTimeout(() => alerta.style.display = 'none', 4000);
+      }
     };
   </script>
 </body>
