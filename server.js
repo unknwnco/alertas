@@ -121,6 +121,16 @@ app.get('/rewards', async (req, res) => {
   }
 });
 
+const http = require('http');
+const { wss, enviarAlerta } = require('./ws-server'); // importar el WebSocket
+
+// Al final de tu server.js reemplaza app.listen:
+const server = http.createServer(app);
+server.on('upgrade', (request, socket, head) => {
+  wss.handleUpgrade(request, socket, head, ws => {
+    wss.emit('connection', ws, request);
+  });
+});
 
 // Escucha en el puerto asignado por Render o 3000 por defecto
 const PORT = process.env.PORT || 3000;
