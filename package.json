@@ -9,5 +9,6 @@
     "cookie-parser": "^1.4.6",
     "dotenv": "^16.3.1",
     "express": "^4.19.2"
+    "ws": "^8.x.x"
   }
 }
