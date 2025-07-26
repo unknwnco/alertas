@@ -25,13 +25,19 @@
   <script>
     const socket = new WebSocket(`wss://${location.host}`);
 
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Alerta recibida:', data);
 
-socket.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Alerta recibida:', data);
-  // Aquí puedes mostrar la alerta en pantalla, como iniciar video, etc.
-};
+      // Mostrar la alerta en pantalla
+      const alerta = document.getElementById('alerta');
+      alerta.textContent = data.mensaje || '¡Alerta!';
+      alerta.style.display = 'block';
 
+      // Ocultar después de 5 segundos
+      setTimeout(() => {
+        alerta.style.display = 'none';
+      }, 5000);
     };
   </script>
 </body>
