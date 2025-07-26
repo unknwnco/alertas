@@ -3,6 +3,8 @@ const express = require('express');
 const axios = require('axios');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const http = require('http');
+const WebSocket = require('ws');
 
 const app = express();
 app.use(express.json());
@@ -18,7 +20,7 @@ const {
 // Redirige a Twitch para hacer login
 app.get('/auth/twitch', (req, res) => {
   const scope = 'channel:manage:redemptions user:read:email';
-const url = `https://id.twitch.tv/oauth2/authorize?client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&response_type=code&scope=${scope}`;
+  const url = `https://id.twitch.tv/oauth2/authorize?client_id=${TWITCH_CLIENT_ID}&redirect_uri=${TWITCH_REDIRECT_URI}&response_type=code&scope=${scope}`;
   res.redirect(url);
 });
 
@@ -114,24 +116,45 @@ app.get('/rewards', async (req, res) => {
       }
     );
 
-    res.json(response.data.data); // devuelve solo el array de recompensas
+    res.json(response.data.data);
   } catch (err) {
     console.error(err.response?.data || err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-const http = require('http');
-const { wss, enviarAlerta } = require('./ws-server'); // importar el WebSocket
+// RUTA OPCIONAL PARA ALERTA HTML
+app.get('/alert', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/alert.html'));
+});
 
-// Al final de tu server.js reemplaza app.listen:
+// Servidor HTTP + WebSocket en uno
 const server = http.createServer(app);
-server.on('upgrade', (request, socket, head) => {
-  wss.handleUpgrade(request, socket, head, ws => {
-    wss.emit('connection', ws, request);
+const wss = new WebSocket.Server({ server });
+
+// Broadcast a todos los clientes conectados
+function enviarAlerta(data) {
+  const mensaje = JSON.stringify(data);
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      client.send(mensaje);
+    }
+  });
+}
+
+// Conexión WebSocket
+wss.on('connection', (ws) => {
+  console.log('🟢 Cliente WebSocket conectado');
+
+  ws.on('close', () => {
+    console.log('🔴 Cliente WebSocket desconectado');
   });
 });
 
-// Escucha en el puerto asignado por Render o 3000 por defecto
+// 🔥 Guarda esta función si luego quieres invocar alertas desde otro endpoint:
+// enviarAlerta({ tipo: 'reward', mensaje: '¡Alguien canjeó!' });
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Servidor corriendo en http://localhost:${PORT}`));
+server.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+});
